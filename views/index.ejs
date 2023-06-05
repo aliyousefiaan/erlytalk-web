@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ErlyTalk - Web</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f2f2f2;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        form {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input[type="text"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            width: 200px;
+        }
+
+        button {
+            padding: 5px 10px;
+            background-color: #333;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        #chat-container {
+            display: none;
+        }
+
+        #message-box {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+            height: 200px;
+            overflow-y: auto;
+        }
+
+        p {
+            margin: 0;
+        }
+
+        hr {
+            border: none;
+            border-top: 1px solid #ccc;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Chat</h1>
+    <form id="connect-form">
+        <label for="userid">Your user id:</label>
+        <input type="text" id="userid" required>
+        <br><br>
+        <button type="submit">Connect</button>
+    </form>
+
+    <div id="chat-container">
+        <form id="send-form">
+            <label for="destination">To user id:</label>
+            <input type="text" id="destination" required>
+            <br>
+            <label for="body">Message:</label>
+            <input type="text" id="body" required>
+            <br><br>
+            <button type="submit">Send</button>
+        </form>
+        <div id="message-box"></div>
+    </div>
+
+    <script>
+        document.getElementById("connect-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+            
+            var userid = document.getElementById("userid").value;
+            
+            // Hide the connect form and show the chat container
+            document.getElementById("connect-form").style.display = "none";
+            document.getElementById("chat-container").style.display = "block";
+            
+            // Connect to the WebSocket server
+            var websocket = new WebSocket("ws://<%= msgsvc_api_url %>/ws?userid=" + userid);
+            
+            // Send message when the send form is submitted
+            document.getElementById("send-form").addEventListener("submit", function(event) {
+                event.preventDefault();
+                
+                var destination = document.getElementById("destination").value;
+                var body = document.getElementById("body").value;
+                
+                // Create the message object
+                var frame = {
+                    frameType: "sendMessage",
+                    destination: destination,
+                    body: body
+                };
+                
+                // Send the message as JSON
+                websocket.send(JSON.stringify(frame));
+                
+                // Clear the message input
+                document.getElementById("body").value = "";
+            });
+            
+            // Handle received messages
+            websocket.addEventListener("message", function(event) {
+                console.log(event);
+                var messageData = event.data;
+                var messageBox = document.getElementById("message-box");
+                var messageElement = document.createElement("p");
+                // Check if the received message is an acknowledgment
+                if (messageData.toLowerCase() === "ack") {
+                    // Show confirmation that the message was sent
+                    messageElement.innerHTML = "Message sent successfully! <hr>";
+                    messageBox.appendChild(messageElement);
+                } else {
+                    try {
+                        var message = JSON.parse(messageData);
+                        // Format the message for display
+                        var formattedMessage = "Sender: " + message.senderId + "<br>" + "Message: " + message.body + "<hr>";
+                        messageElement.innerHTML = formattedMessage;
+                        messageBox.appendChild(messageElement);
+                    } catch (error) {
+                        // Ignore non-JSON messages
+                        console.error("Received message is not valid JSON:", messageData);
+                    }
+                }
+                // Scroll to the bottom of the message box
+                messageBox.scrollTop = messageBox.scrollHeight;
+            });
+        });
+    </script>
+</body>
+</html>
